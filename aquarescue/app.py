@@ -115,13 +115,51 @@ st.markdown(
 for key, default in {
     "pipeline": None,
     "history": [],
-    "auto_mode": True,
-    "scan_interval": 3.0,
-    "last_scan_time": None,
-    "auto_initialized": False,
+    "scanning": False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
+
+
+def create_human_wireframe():
+    """Generate 3D wireframe human model for visualization"""
+    # Head
+    theta = np.linspace(0, 2*np.pi, 20)
+    head_x = 0.15 * np.cos(theta)
+    head_y = 0.15 * np.sin(theta)
+    head_z = np.ones(20) * 1.7
+    
+    # Torso
+    torso_x = [0, 0, 0, 0]
+    torso_y = [0, 0, 0, 0]
+    torso_z = [1.5, 1.0, 0.5, 0]
+    
+    # Arms
+    left_arm_x = [0, -0.15, -0.3, -0.4]
+    left_arm_y = [0, 0, 0, 0]
+    left_arm_z = [1.4, 1.2, 1.0, 0.8]
+    
+    right_arm_x = [0, 0.15, 0.3, 0.4]
+    right_arm_y = [0, 0, 0, 0]
+    right_arm_z = [1.4, 1.2, 1.0, 0.8]
+    
+    # Legs
+    left_leg_x = [-0.1, -0.1, -0.12, -0.12]
+    left_leg_y = [0, 0, 0, 0]
+    left_leg_z = [0, -0.4, -0.8, -1.2]
+    
+    right_leg_x = [0.1, 0.1, 0.12, 0.12]
+    right_leg_y = [0, 0, 0, 0]
+    right_leg_z = [0, -0.4, -0.8, -1.2]
+    
+    return {
+        'head': (head_x, head_y, head_z),
+        'torso': (torso_x, torso_y, torso_z),
+        'left_arm': (left_arm_x, left_arm_y, left_arm_z),
+        'right_arm': (right_arm_x, right_arm_y, right_arm_z),
+        'left_leg': (left_leg_x, left_leg_y, left_leg_z),
+        'right_leg': (right_leg_x, right_leg_y, right_leg_z),
+    }
 
 
 def build_pipeline(object_type, depth_range, noise_level, point_count, model_name, train_samples, source_mode):
@@ -221,56 +259,53 @@ def extracted_input_dataframe(sonar_data):
     )
 
 
-def auto_generate_scan_config():
-    return {
-        "object_type": np.random.choice(["Random (Mixed)", "Human", "Debris"]),
-        "depth_range": tuple(sorted(np.round(np.random.uniform(1.5, 22.0, 2), 1))),
-        "noise_level": float(np.round(np.random.uniform(0.1, 0.65), 2)),
-        "point_count": int(np.random.choice(np.arange(80, 281, 20))),
-        "model_name": np.random.choice(["Random Forest", "SVM", "Logistic Regression"]),
-        "train_samples": int(np.random.choice(np.arange(1000, 3601, 200))),
-        "source_mode": "Auto-generated sonar reading",
-    }
-
-
 with st.sidebar:
     st.markdown("""
     <div style='text-align: center; padding: 1.5rem 0;'>
         <h1 style='margin: 0; font-size: 1.8rem;'>🌊 AquaRescue AI</h1>
-        <p style='margin: 0.3rem 0 0 0; font-size: 0.75rem; opacity: 0.7; letter-spacing: 1px;'>AUTOMATED SONAR DETECTION SYSTEM</p>
+        <p style='margin: 0.3rem 0 0 0; font-size: 0.75rem; opacity: 0.7; letter-spacing: 1px;'>REAL-TIME SONAR RESCUE SYSTEM</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.divider()
     
-    st.subheader("System Control")
+    st.subheader("🎯 Sonar Control")
     
-    auto_mode = st.toggle("🔄 Auto-scan mode", value=st.session_state.auto_mode, 
-                          help="Automatically generate and analyze sonar scans at regular intervals")
-    st.session_state.auto_mode = auto_mode
+    # Primary scan button
+    scan_btn = st.button("🔍 START SONAR SCAN", use_container_width=True, type="primary")
     
-    if auto_mode:
-        scan_interval = st.slider("Scan interval (seconds)", 1.0, 10.0, st.session_state.scan_interval, 0.5)
-        st.session_state.scan_interval = scan_interval
-        st.info(f"⚡ Auto-scanning every {scan_interval}s")
+    st.markdown("")
     
-    st.divider()
+    with st.expander("⚙️ Scan Configuration", expanded=False):
+        object_type = st.selectbox("Simulation Target", ["Random (Mixed)", "Human", "Debris"],
+                                   help="For testing: select object type to simulate")
+        depth_range = st.slider("Depth Range (m)", 1.0, 30.0, (2.0, 15.0), 0.5)
+        noise_level = st.slider("Noise Level", 0.0, 1.0, 0.3, 0.05)
+        point_count = st.slider("Point Cloud Density", 50, 300, 120, 10)
     
-    with st.expander("⚙️ Scan Parameters", expanded=False):
-        object_type = st.selectbox("Target object", ["Random (Mixed)", "Human", "Debris"])
-        depth_range = st.slider("Depth range (m)", 1.0, 30.0, (2.0, 15.0), 0.5)
-        noise_level = st.slider("Noise level", 0.0, 1.0, 0.3, 0.05)
-        point_count = st.slider("Point cloud density", 50, 300, 120, 10)
-    
-    with st.expander("🤖 Model Settings", expanded=False):
-        model_name = st.selectbox("Classifier", ["Random Forest", "SVM", "Logistic Regression"])
-        train_samples = st.slider("Training samples", 400, 4000, 2000, 200)
+    with st.expander("🤖 Classifier Settings", expanded=False):
+        model_name = st.selectbox("ML Model", ["Random Forest", "SVM", "Logistic Regression"])
+        train_samples = st.slider("Training Samples", 400, 4000, 2000, 200)
     
     st.divider()
     
-    col1, col2 = st.columns(2)
-    manual_btn = col1.button("▶️ Manual Scan", use_container_width=True, type="primary")
-    reset_btn = col2.button("🔄 Reset", use_container_width=True)
+    # Status indicator
+    if st.session_state.pipeline is not None:
+        st.markdown("""
+        <div style='text-align: center; padding: 0.5rem; background: rgba(76, 175, 80, 0.15); border-radius: 8px; border: 1px solid #4caf50;'>
+            <span style='color: #4caf50; font-weight: 600; font-size: 0.85rem;'>✓ SCAN COMPLETE</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style='text-align: center; padding: 0.5rem; background: rgba(255, 152, 0, 0.15); border-radius: 8px; border: 1px solid #ff9800;'>
+            <span style='color: #ff9800; font-weight: 600; font-size: 0.85rem;'>⏸ STANDBY</span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    reset_btn = st.button("🔄 Reset System", use_container_width=True)
 
 def run_scan(config, source_mode="Manual"):
     """Execute a scan with given configuration"""
@@ -285,7 +320,6 @@ def run_scan(config, source_mode="Manual"):
     )
     
     st.session_state.pipeline = pipeline
-    st.session_state.last_scan_time = datetime.now()
     st.session_state.history.append(
         {
             "scan": len(st.session_state.history) + 1,
@@ -299,31 +333,12 @@ def run_scan(config, source_mode="Manual"):
 if reset_btn:
     st.session_state.pipeline = None
     st.session_state.history = []
-    st.session_state.last_scan_time = None
-    st.session_state.auto_initialized = False
+    st.session_state.scanning = False
     st.rerun()
 
-# Auto-scan logic
-if st.session_state.auto_mode:
-    current_time = datetime.now()
-    should_scan = False
-    
-    if not st.session_state.auto_initialized:
-        should_scan = True
-        st.session_state.auto_initialized = True
-    elif st.session_state.last_scan_time:
-        time_since_last = (current_time - st.session_state.last_scan_time).total_seconds()
-        if time_since_last >= st.session_state.scan_interval:
-            should_scan = True
-    
-    if should_scan:
-        auto_cfg = auto_generate_scan_config()
-        run_scan(auto_cfg, source_mode="Auto-scan")
-        st.rerun()
-
-# Manual scan button
-if manual_btn:
-    manual_cfg = {
+# Execute scan when button clicked
+if scan_btn:
+    scan_config = {
         "object_type": object_type,
         "depth_range": depth_range,
         "noise_level": noise_level,
@@ -331,7 +346,7 @@ if manual_btn:
         "model_name": model_name,
         "train_samples": train_samples,
     }
-    run_scan(manual_cfg, source_mode="Manual scan")
+    run_scan(scan_config, source_mode="Sonar Scan")
     st.rerun()
 
 # Header
@@ -340,38 +355,59 @@ header_col1, header_col2 = st.columns([3, 1])
 with header_col1:
     st.markdown("""
     <div style='display: flex; align-items: center;'>
-        <h1 style='margin: 0; font-size: 2rem;'>Sonar Detection Pipeline</h1>
+        <h1 style='margin: 0; font-size: 2rem;'>Real-Time Sonar Rescue System</h1>
     </div>
-    <p style='margin: 0.2rem 0 0 0; opacity: 0.7; font-size: 0.9rem;'>Real-time underwater object detection and classification</p>
+    <p style='margin: 0.2rem 0 0 0; opacity: 0.7; font-size: 0.9rem;'>Underwater object detection and human rescue classification</p>
     """, unsafe_allow_html=True)
 
 with header_col2:
-    if st.session_state.auto_mode:
-        st.markdown("""
-        <div style='text-align: right; padding: 0.5rem 0;'>
-            <span class='status-badge status-active'>
-                <span class='live-indicator'></span>LIVE
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
+    if st.session_state.pipeline is not None:
+        pred_class = st.session_state.pipeline["prediction"]["class"]
+        if pred_class == "Human":
+            st.markdown("""
+            <div style='text-align: right; padding: 0.5rem 0;'>
+                <span class='status-badge' style='background: rgba(244, 67, 54, 0.2); color: #f44336; border: 1px solid #f44336;'>
+                    <span class='live-indicator' style='background: #f44336;'></span>HUMAN DETECTED
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style='text-align: right; padding: 0.5rem 0;'>
+                <span class='status-badge status-active'>
+                    <span class='live-indicator'></span>DEBRIS
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
     else:
         st.markdown("""
         <div style='text-align: right; padding: 0.5rem 0;'>
-            <span class='status-badge status-standby'>STANDBY</span>
+            <span class='status-badge status-standby'>READY</span>
         </div>
         """, unsafe_allow_html=True)
 
 st.divider()
 
 if st.session_state.pipeline is None:
-    st.info("🚀 System ready. Enable auto-scan mode or click 'Manual Scan' to begin.")
+    st.markdown("""
+    <div style='text-align: center; padding: 3rem 2rem;'>
+        <h2 style='color: rgba(255,255,255,0.9); margin-bottom: 1rem;'>🚨 System Ready for Operation</h2>
+        <p style='font-size: 1.1rem; opacity: 0.7; margin-bottom: 2rem;'>
+            Click <strong>"START SONAR SCAN"</strong> in the sidebar to begin underwater detection
+        </p>
+        <div style='background: rgba(33, 150, 243, 0.1); border: 1px solid rgba(33, 150, 243, 0.3); border-radius: 8px; padding: 1.5rem; max-width: 600px; margin: 0 auto;'>
+            <h3 style='margin-top: 0; color: #2196f3;'>System Capabilities</h3>
+            <ul style='text-align: left; line-height: 2;'>
+                <li>🌊 Real-time sonar data simulation and processing</li>
+                <li>🎯 ML-powered Human vs Debris classification</li>
+                <li>📊 Advanced feature extraction and analysis</li>
+                <li>💓 Vital signs monitoring for human detection</li>
+                <li>📈 3D visualization and point cloud analysis</li>
+            </ul>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
-
-# Auto-refresh in auto mode
-if st.session_state.auto_mode:
-    import time
-    time.sleep(0.1)
-    st.rerun()
 
 pipeline = st.session_state.pipeline
 sonar_data = pipeline["sonar"]
@@ -386,33 +422,36 @@ input_config = pipeline["input_config"]
 sonar_df = sonar_dataframe(sonar_data)
 signal_df = signal_dataframe(sonar_data, processed)
 
-# KPI Metrics
+# KPI Metrics - Rescue Dashboard
 metric_cols = st.columns([1.5, 1, 1, 1, 1, 1])
 
 with metric_cols[0]:
     if prediction["class"] == "Human":
-        st.metric("🚨 Detection", prediction["class"], delta="Alert", delta_color="inverse")
+        st.metric("🚨 CLASSIFICATION", prediction["class"], delta="⚠️ RESCUE ALERT", delta_color="inverse")
     else:
-        st.metric("✅ Detection", prediction["class"], delta="Safe", delta_color="normal")
+        st.metric("✅ CLASSIFICATION", prediction["class"], delta="Safe", delta_color="normal")
 
-metric_cols[1].metric("Confidence", f"{prediction['confidence']*100:.1f}%")
-metric_cols[2].metric("Model", prediction["model"])
-metric_cols[3].metric("Accuracy", f"{train_report['accuracy']*100:.1f}%")
-metric_cols[4].metric("Total Scans", str(len(st.session_state.history)))
+metric_cols[1].metric("🎯 Confidence", f"{prediction['confidence']*100:.1f}%")
+metric_cols[2].metric("🤖 ML Model", prediction["model"])
+metric_cols[3].metric("📊 Model Acc.", f"{train_report['accuracy']*100:.1f}%")
+metric_cols[4].metric("🔢 Total Scans", str(len(st.session_state.history)))
 
 if st.session_state.history:
     humans_detected = sum(1 for h in st.session_state.history if h["class"] == "Human")
-    metric_cols[5].metric("Humans Found", str(humans_detected))
+    if humans_detected > 0:
+        metric_cols[5].metric("🚨 Humans Found", str(humans_detected), delta="Action Required", delta_color="inverse")
+    else:
+        metric_cols[5].metric("🚨 Humans Found", "0", delta="All Clear")
 else:
-    metric_cols[5].metric("Humans Found", "0")
+    metric_cols[5].metric("🚨 Humans Found", "0")
 
-# Metadata row
-with st.expander("📊 Scan Details", expanded=False):
+# Scan metadata
+with st.expander("📋 Current Scan Configuration", expanded=False):
     meta_col1, meta_col2, meta_col3, meta_col4 = st.columns(4)
-    meta_col1.metric("Source", input_config['source_mode'])
-    meta_col2.metric("Depth Range", f"{input_config['depth_range'][0]}–{input_config['depth_range'][1]}m")
-    meta_col3.metric("Data Points", input_config['point_count'])
-    meta_col4.metric("Noise Level", f"{input_config['noise_level']:.2f}")
+    meta_col1.metric("🎯 Source", input_config['source_mode'])
+    meta_col2.metric("📏 Depth Range", f"{input_config['depth_range'][0]}–{input_config['depth_range'][1]}m")
+    meta_col3.metric("💠 Data Points", input_config['point_count'])
+    meta_col4.metric("📡 Noise Level", f"{input_config['noise_level']:.2f}")
 
 st.divider()
 
@@ -745,134 +784,276 @@ with stage4:
         st.plotly_chart(fig_cm, use_container_width=True, config={'displayModeBar': False})
 
 with stage5:
-    st.markdown("### 🎯 Final Classification & Vital Signs")
-    st.caption("Model prediction results and biological signature analysis")
+    st.markdown("### 🎯 Classification Result & Rescue Analysis")
+    st.caption("Final detection outcome with confidence metrics and biological monitoring")
     st.markdown("")
     
-    left, right = st.columns([1.1, 1.9])
-
-    with left:
-        is_human = prediction["class"] == "Human"
-        st.markdown("**🚨 Detection Result**")
+    is_human = prediction["class"] == "Human"
+    
+    # Top section: Classification result
+    result_col1, result_col2 = st.columns([1, 2])
+    
+    with result_col1:
+        st.markdown("**🚨 Detection Classification**")
         if is_human:
-            st.error(f"**HUMAN DETECTED**")
-            st.markdown(f"Confidence: **{prediction['confidence']*100:.1f}%**")
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(211, 47, 47, 0.15)); 
+                        border: 2px solid #f44336; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <h1 style='color: #f44336; margin: 0; font-size: 2.5rem; font-weight: 700;'>⚠️ HUMAN</h1>
+                <p style='margin: 0.5rem 0 0 0; font-size: 1.3rem; font-weight: 600;'>Rescue Required</p>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.success(f"**DEBRIS / OBJECT**")
-            st.markdown(f"Confidence: **{prediction['confidence']*100:.1f}%**")
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(56, 142, 60, 0.15)); 
+                        border: 2px solid #4caf50; border-radius: 12px; padding: 1.5rem; text-align: center;'>
+                <h1 style='color: #4caf50; margin: 0; font-size: 2.5rem; font-weight: 700;'>✓ DEBRIS</h1>
+                <p style='margin: 0.5rem 0 0 0; font-size: 1.3rem; font-weight: 600;'>No Action Needed</p>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("")
-        st.markdown("**📝 Classification Details**")
+        st.markdown("**📊 Classification Details**")
         
         details_data = [
             ['Predicted Class', prediction['class']],
             ['Confidence Score', f"{prediction['confidence']*100:.2f}%"],
             ['Model Used', prediction['model']],
             ['Ground Truth', sonar_data['true_label'].title()],
-            ['Match', '✅ Correct' if prediction['class'].lower() == sonar_data['true_label'] else '❌ Mismatch']
+            ['Accuracy', '✅ Correct' if prediction['class'].lower() == sonar_data['true_label'] else '❌ Mismatch']
         ]
-        details_df = pd.DataFrame(details_data, columns=['Attribute', 'Value'])
+        details_df = pd.DataFrame(details_data, columns=['Metric', 'Value'])
         st.dataframe(details_df, use_container_width=True, hide_index=True, height=210)
 
-    with right:
-        st.markdown("**💓 Biological Vital Signs Monitor**")
-        if vitals:
-            st.caption(f"Real-time physiological data extracted from micro-Doppler signature")
+        st.markdown("")
+        st.markdown("**🎯 Feature Summary**")
+        feature_summary = pd.DataFrame({
+            'Feature': ['Height', 'Density', 'Symmetry', 'Movement'],
+            'Value': [
+                f"{features['height']:.2f} m",
+                f"{features['density']:.1f} pts/m³",
+                f"{features['symmetry_score']:.3f}",
+                f"{features['movement_score']:.3f}"
+            ]
+        })
+        st.dataframe(feature_summary, use_container_width=True, hide_index=True, height=180)
+
+    with result_col2:
+        st.markdown("**📦 3D Sonar Point Cloud with Detection Overlay**")
+        st.caption(f"Spatial visualization of detected object · {len(sonar_df)} data points")
+        
+        fig3d_result = go.Figure()
+        
+        # Add point cloud
+        fig3d_result.add_trace(
+            go.Scatter3d(
+                x=sonar_df["x"],
+                y=sonar_df["y"],
+                z=sonar_df["z"],
+                mode="markers",
+                name="Sonar Returns",
+                marker=dict(
+                    size=4, 
+                    color=sonar_df["intensity"], 
+                    colorscale="Viridis", 
+                    opacity=0.7,
+                    colorbar=dict(title="Intensity", x=1.1, thickness=15, len=0.7),
+                    line=dict(width=0.3, color='rgba(255,255,255,0.3)'),
+                ),
+                hovertemplate="<b>Sonar Point</b><br>X: %{x:.2f}m<br>Y: %{y:.2f}m<br>Z: %{z:.2f}m<extra></extra>",
+            )
+        )
+        
+        # Add human wireframe if detected
+        if is_human:
+            human_model = create_human_wireframe()
             
-            col1, col2, col3 = st.columns(3)
-            col1.metric("❤️ Heart Rate", f"{vitals['heart_rate']} bpm",
-                       delta="Normal" if 60 <= vitals['heart_rate'] <= 100 else "Abnormal")
-            col2.metric("🫁 Respiration", f"{vitals['resp_rate']} br/min",
-                       delta="Normal" if 12 <= vitals['resp_rate'] <= 20 else "Abnormal")
-            col3.metric("📊 Signal Quality", "Good", delta="Stable")
+            # Center the model at the centroid of the point cloud
+            cx, cy, cz = sonar_df["x"].mean(), sonar_df["y"].mean(), sonar_df["z"].mean()
+            
+            # Add head circle
+            hx, hy, hz = human_model['head']
+            fig3d_result.add_trace(go.Scatter3d(
+                x=hx + cx, y=hy + cy, z=hz + cz - 0.5,
+                mode='lines',
+                name='Head',
+                line=dict(color='#ff4d4f', width=6),
+                hoverinfo='skip'
+            ))
+            
+            # Add body parts
+            for part_name, part_data in human_model.items():
+                if part_name == 'head':
+                    continue
+                px, py, pz = part_data
+                fig3d_result.add_trace(go.Scatter3d(
+                    x=np.array(px) + cx,
+                    y=np.array(py) + cy,
+                    z=np.array(pz) + cz - 0.5,
+                    mode='lines+markers',
+                    name=part_name.replace('_', ' ').title(),
+                    line=dict(color='#ff4d4f', width=5),
+                    marker=dict(size=4, color='#ff1744'),
+                    hoverinfo='skip'
+                ))
+        
+        fig3d_result.update_layout(
+            height=500,
+            margin=dict(l=0, r=0, t=0, b=0),
+            scene=dict(
+                xaxis=dict(title="X (m)", backgroundcolor="rgba(0,0,0,0)", gridcolor='rgba(255,255,255,0.1)'),
+                yaxis=dict(title="Y (m)", backgroundcolor="rgba(0,0,0,0)", gridcolor='rgba(255,255,255,0.1)'),
+                zaxis=dict(title="Depth (m)", backgroundcolor="rgba(0,0,0,0)", gridcolor='rgba(255,255,255,0.1)'),
+                bgcolor="rgba(0,0,0,0)"
+            ),
+            showlegend=is_human,
+            legend=dict(x=0.7, y=0.95, bgcolor='rgba(0,0,0,0.5)')
+        )
+        st.plotly_chart(fig3d_result, use_container_width=True, config={'displayModeBar': True})
+
+    # Vital signs section - only show for humans
+    if is_human and vitals:
+        st.markdown("---")
+        st.markdown("### 💓 Human Vital Signs Monitoring")
+        st.caption("Real-time physiological data extracted from micro-Doppler signature · Emergency response required")
+        st.markdown("")
+        
+        vital_left, vital_right = st.columns([1, 2])
+        
+        with vital_left:
+            st.markdown("**📊 Vital Statistics**")
+            
+            # Heart rate status
+            hr = vitals['heart_rate']
+            hr_status = "Normal" if 60 <= hr <= 100 else "⚠️ Abnormal"
+            hr_delta = "Stable" if 60 <= hr <= 100 else "Alert"
+            
+            st.metric("❤️ Heart Rate", f"{hr} bpm", 
+                     delta=hr_delta,
+                     delta_color="normal" if 60 <= hr <= 100 else "inverse")
+            
+            # Respiration rate status
+            rr = vitals['resp_rate']
+            rr_status = "Normal" if 12 <= rr <= 20 else "⚠️ Abnormal"
+            rr_delta = "Stable" if 12 <= rr <= 20 else "Alert"
+            
+            st.metric("🫁 Respiration Rate", f"{rr} br/min",
+                     delta=rr_delta,
+                     delta_color="normal" if 12 <= rr <= 20 else "inverse")
+            
+            st.metric("📡 Signal Quality", "Excellent", delta="Strong SNR")
+            st.metric("⏱️ Monitoring Duration", "6.0 sec", delta="Real-time")
             
             st.markdown("")
-
-            fig_v = make_subplots(
-                rows=2, cols=1, 
-                shared_xaxes=True, 
-                subplot_titles=("Electrocardiogram (ECG) Signal", "Respiratory Waveform"),
-                vertical_spacing=0.08,
+            st.markdown("**🚑 Rescue Priority**")
+            st.error("**HIGH PRIORITY** - Immediate rescue response recommended")
+            
+            st.markdown("")
+            st.markdown("**📋 Assessment**")
+            assessment_data = [
+                ['Consciousness', 'Detected'],
+                ['Movement', f"{features['movement_score']:.2f}"],
+                ['Position', f"Depth {sonar_df['z'].mean():.1f}m"],
+                ['Status', 'Alive']
+            ]
+            assessment_df = pd.DataFrame(assessment_data, columns=['Parameter', 'Value'])
+            st.dataframe(assessment_df, use_container_width=True, hide_index=True, height=180)
+        
+        with vital_right:
+            st.markdown("**🫀 Cardiac & Respiratory Waveforms**")
+            st.caption("Live ECG and respiration patterns extracted from sonar micro-Doppler analysis")
+            
+            fig_vitals = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                subplot_titles=("Electrocardiogram (ECG) · Cardiac Activity", "Respiratory Signal · Breathing Pattern"),
+                vertical_spacing=0.1,
                 row_heights=[0.5, 0.5]
             )
             
-            fig_v.add_trace(
+            # ECG trace
+            fig_vitals.add_trace(
                 go.Scatter(
-                    x=vitals["time"], 
-                    y=vitals["ecg"], 
-                    mode="lines", 
-                    line=dict(color="#ff4d4f", width=1.6),
-                    name="ECG",
-                    hovertemplate="Time: %{x:.2f}s<br>Amplitude: %{y:.2f}<extra></extra>"
-                ),
-                row=1,
-                col=1,
-            )
-            
-            fig_v.add_trace(
-                go.Scatter(
-                    x=vitals["time"], 
-                    y=vitals["resp"], 
-                    mode="lines", 
-                    line=dict(color="#1677ff", width=1.6),
+                    x=vitals["time"],
+                    y=vitals["ecg"],
+                    mode="lines",
+                    line=dict(color="#ff4d4f", width=2),
+                    name=f"ECG ({hr} bpm)",
                     fill='tozeroy',
-                    fillcolor='rgba(22,119,255,0.1)',
-                    name="Respiration",
-                    hovertemplate="Time: %{x:.2f}s<br>Amplitude: %{y:.2f}<extra></extra>"
+                    fillcolor='rgba(255, 77, 79, 0.1)',
+                    hovertemplate="Time: %{x:.2f}s<br>Amplitude: %{y:.2f} mV<extra></extra>"
                 ),
-                row=2,
-                col=1,
+                row=1, col=1
             )
             
-            fig_v.update_xaxes(title_text="Time (seconds)", row=2, col=1, gridcolor='rgba(255,255,255,0.1)')
-            fig_v.update_yaxes(title_text="Voltage (mV)", row=1, col=1, gridcolor='rgba(255,255,255,0.1)')
-            fig_v.update_yaxes(title_text="Amplitude", row=2, col=1, gridcolor='rgba(255,255,255,0.1)')
+            # Respiration trace
+            fig_vitals.add_trace(
+                go.Scatter(
+                    x=vitals["time"],
+                    y=vitals["resp"],
+                    mode="lines",
+                    line=dict(color="#1677ff", width=2),
+                    name=f"Respiration ({rr} br/min)",
+                    fill='tozeroy',
+                    fillcolor='rgba(22, 119, 255, 0.1)',
+                    hovertemplate="Time: %{x:.2f}s<br>Amplitude: %{y:.2f}<extra></extra>"
+                ),
+                row=2, col=1
+            )
             
-            fig_v.update_layout(
-                height=450, 
-                margin=dict(l=10, r=10, t=40, b=10), 
-                showlegend=False,
+            fig_vitals.update_xaxes(title_text="Time (seconds)", row=2, col=1, gridcolor='rgba(255,255,255,0.1)')
+            fig_vitals.update_yaxes(title_text="ECG (mV)", row=1, col=1, gridcolor='rgba(255,255,255,0.1)')
+            fig_vitals.update_yaxes(title_text="Resp. Amplitude", row=2, col=1, gridcolor='rgba(255,255,255,0.1)')
+            
+            fig_vitals.update_layout(
+                height=520,
+                margin=dict(l=10, r=10, t=50, b=10),
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=1.08, xanchor="center", x=0.5),
                 hovermode='x unified'
             )
             
-            for annotation in fig_v['layout']['annotations']:
-                annotation['font'] = dict(size=13, weight=600)
+            for annotation in fig_vitals['layout']['annotations']:
+                annotation['font'] = dict(size=12, weight=600)
             
-            st.plotly_chart(fig_v, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.caption("Vital signs monitoring available only for human detections")
-            st.info("🔍 No biological signature detected in current scan. Target classified as debris or inanimate object.")
+            st.plotly_chart(fig_vitals, use_container_width=True, config={'displayModeBar': True})
+    
+    elif not is_human:
+        st.markdown("---")
+        st.markdown("### ℹ️ Vital Signs Monitoring")
+        st.info("💡 **No biological signature detected** · Vital signs monitoring is only available for human detection. Current classification: Debris / Inanimate object.")
 
 if st.session_state.history:
     st.divider()
-    st.markdown("### 📊 System Performance & Scan History")
-    st.caption("Comprehensive log of all detection events and aggregate statistics")
+    st.markdown("### 📊 Rescue Mission Log & Performance Statistics")
+    st.caption("Complete detection history with aggregate metrics and mission outcomes")
     st.markdown("")
     
     history_col1, history_col2 = st.columns([2.2, 1])
     
     with history_col1:
-        st.markdown("**📜 Detection Event Log**")
+        st.markdown("**📜 Scan History & Detection Log**")
         history_df = pd.DataFrame(st.session_state.history)
         
-        # Better column names and formatting
+        # Enhanced formatting with rescue focus
         display_df = history_df.copy()
         display_df["confidence"] = (display_df["confidence"] * 100).map(lambda x: f"{x:.1f}%")
-        display_df['status'] = display_df['class'].apply(lambda x: '🚨 Human' if x == 'Human' else '✅ Debris')
-        display_df = display_df[['scan', 'timestamp', 'status', 'confidence', 'model']]
-        display_df.columns = ['Scan #', 'Time', 'Detection', 'Confidence', 'Model']
+        display_df['status'] = display_df['class'].apply(lambda x: '🚨 HUMAN' if x == 'Human' else '✅ DEBRIS')
+        display_df['action'] = display_df['class'].apply(lambda x: 'RESCUE' if x == 'Human' else 'IGNORE')
+        display_df = display_df[['scan', 'timestamp', 'status', 'action', 'confidence', 'model']]
+        display_df.columns = ['Scan #', 'Time', 'Detection', 'Action', 'Confidence', 'Model']
         
-        # Add color coding
-        def highlight_human(row):
-            if '🚨' in str(row['Detection']):
-                return ['background-color: rgba(244, 67, 54, 0.15); font-weight: 500;'] * len(row)
-            return ['background-color: rgba(76, 175, 80, 0.08);'] * len(row)
+        # Color coding for rescue priority
+        def highlight_rows(row):
+            if 'HUMAN' in str(row['Detection']):
+                return ['background: linear-gradient(90deg, rgba(244, 67, 54, 0.25), rgba(244, 67, 54, 0.05)); font-weight: 600; color: #ff5252;'] * len(row)
+            return ['background: rgba(76, 175, 80, 0.08);'] * len(row)
         
-        styled_df = display_df.style.apply(highlight_human, axis=1)
+        styled_df = display_df.style.apply(highlight_rows, axis=1)
         st.dataframe(styled_df, use_container_width=True, hide_index=True, height=320)
     
     with history_col2:
-        st.markdown("**📈 Cumulative Statistics**")
+        st.markdown("**📈 Mission Statistics**")
         
         total_scans = len(st.session_state.history)
         humans = sum(1 for h in st.session_state.history if h["class"] == "Human")
@@ -880,11 +1061,43 @@ if st.session_state.history:
         avg_conf = np.mean([h["confidence"] for h in st.session_state.history])
         human_pct = (humans/total_scans*100) if total_scans > 0 else 0
         
-        st.metric("🔢 Total Scans", total_scans, delta=f"+{total_scans}" if total_scans > 0 else None)
-        st.metric("🚨 Humans Found", humans, 
-                 delta=f"{human_pct:.1f}% of scans",
-                 delta_color="inverse" if humans > 0 else "off")
-        st.metric("✅ Debris Objects", debris, 
+        st.metric("🔢 Total Scans", total_scans, 
+                 delta=f"Last scan: {st.session_state.history[-1]['timestamp']}")
+        
+        if humans > 0:
+            st.metric("🚨 Humans Detected", humans, 
+                     delta=f"{human_pct:.1f}% detection rate",
+                     delta_color="inverse")
+        else:
+            st.metric("🚨 Humans Detected", humans, delta="No rescues needed")
+        
+        st.metric("✅ Debris Detected", debris, 
                  delta=f"{((debris/total_scans*100) if total_scans > 0 else 0):.1f}% of scans")
+        
         st.metric("🎯 Avg Confidence", f"{avg_conf*100:.1f}%",
-                 delta="High" if avg_conf > 0.85 else "Medium" if avg_conf > 0.7 else "Low")
+                 delta="Excellent" if avg_conf > 0.9 else "Good" if avg_conf > 0.8 else "Fair" if avg_conf > 0.7 else "Low")
+        
+        st.markdown("")
+        
+        # Rescue priority indicator
+        if humans > 0:
+            st.markdown("""
+            <div style='background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(211, 47, 47, 0.1)); 
+                        border: 2px solid #f44336; border-radius: 8px; padding: 1rem; text-align: center;'>
+                <p style='margin: 0; font-size: 1.1rem; font-weight: 700; color: #f44336;'>
+                    ⚠️ ACTIVE RESCUES<br/>
+                    <span style='font-size: 2rem;'>{}</span>
+                </p>
+            </div>
+            """.format(humans), unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style='background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(56, 142, 60, 0.1)); 
+                        border: 2px solid #4caf50; border-radius: 8px; padding: 1rem; text-align: center;'>
+                <p style='margin: 0; font-size: 1.1rem; font-weight: 600; color: #4caf50;'>
+                    ✓ ALL CLEAR<br/>
+                    <span style='font-size: 1rem;'>No rescue operations required</span>
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
